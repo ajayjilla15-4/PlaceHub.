@@ -1,5 +1,7 @@
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import User from './models/User.js';
 import Job from './models/Job.js';
 import Application from './models/Application.js';
@@ -13,14 +15,25 @@ import {
   initialMentorships,
 } from './data/seedData.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+dotenv.config({ path: path.resolve(__dirname, '.env') });
 dotenv.config();
+
+const sanitizeUri = (uri) => {
+  if (!uri || typeof uri !== 'string') return '';
+  return uri.replace(/\/\/[^:]+:[^@]+@/, '//***:***@');
+};
 
 const seed = async () => {
   const uri = process.env.MONGODB_URI || 'mongodb://127.0.0.1:27017/placehub';
-  console.log(`Connecting to MongoDB at ${uri}...`);
+  console.log(`Connecting to MongoDB at ${sanitizeUri(uri)}...`);
 
   try {
-    await mongoose.connect(uri);
+    await mongoose.connect(uri, {
+      serverSelectionTimeoutMS: 10000,
+    });
     console.log('MongoDB connected successfully.');
 
     console.log('Clearing existing data...');

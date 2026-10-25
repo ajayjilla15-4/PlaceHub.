@@ -2,8 +2,10 @@ import mongoose from 'mongoose';
 
 const experienceSchema = new mongoose.Schema(
   {
+    _id: { type: String },
     authorName: { type: String, required: true },
     authorEmail: { type: String },
+    authorRole: { type: String },
     company: { type: String, required: true },
     role: { type: String, required: true },
     batch: { type: Number, default: 2024 },

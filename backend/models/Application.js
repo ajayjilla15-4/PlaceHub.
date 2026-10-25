@@ -2,16 +2,14 @@ import mongoose from 'mongoose';
 
 const applicationSchema = new mongoose.Schema(
   {
-    student: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'User',
-      required: true,
-    },
-    job: {
-      type: mongoose.Schema.Types.ObjectId,
-      ref: 'Job',
-      required: true,
-    },
+    _id: { type: String },
+    studentId: { type: String, required: true },
+    studentName: { type: String },
+    studentEmail: { type: String },
+    jobId: { type: String, required: true },
+    company: { type: String },
+    jobTitle: { type: String },
+    packageCTC: { type: String },
     status: {
       type: String,
       enum: ['Applied', 'Shortlisted', 'Interview Scheduled', 'Selected', 'Rejected'],
@@ -19,6 +17,8 @@ const applicationSchema = new mongoose.Schema(
     },
     notes: { type: String, default: '' },
     appliedAt: { type: Date, default: Date.now },
+    student: { type: String },
+    job: { type: String },
   },
   { timestamps: true }
 );

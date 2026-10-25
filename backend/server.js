@@ -1,6 +1,8 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import jwt from 'jsonwebtoken';
 import { connectDB, getDBStatus } from './config/db.js';
 import User from './models/User.js';
@@ -18,6 +20,11 @@ import {
 } from './data/seedData.js';
 import { authenticateToken } from './middleware/auth.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// Ensure backend/.env is loaded reliably
+dotenv.config({ path: path.resolve(__dirname, '.env') });
 dotenv.config();
 
 const app = express();
@@ -33,26 +40,6 @@ let memJobs = [...initialJobs];
 let memApplications = [...initialApplications];
 let memExperiences = [...initialExperiences];
 let memMentorships = [...initialMentorships];
-
-// Connect to MongoDB
-connectDB().then(async (connected) => {
-  if (connected) {
-    try {
-      const userCount = await User.countDocuments();
-      if (userCount === 0) {
-        console.log('[Seed] Seeding MongoDB with initial PlaceHub data...');
-        await User.insertMany(initialUsers);
-        await Job.insertMany(initialJobs);
-        await Application.insertMany(initialApplications);
-        await Experience.insertMany(initialExperiences);
-        await Mentorship.insertMany(initialMentorships);
-        console.log('[Seed] MongoDB successfully seeded!');
-      }
-    } catch (e) {
-      console.warn('[Seed Warning] MongoDB auto-seed skipped:', e.message);
-    }
-  }
-});
 
 // Helper for JWT creation
 const generateToken = (user) => {
@@ -287,7 +274,14 @@ app.post('/api/jobs', authenticateToken, (req, res) => {
   res.status(201).json(newJob);
 });
 
-app.delete('/api/jobs/:id', authenticateToken, (req, res) => {
+app.delete('/api/jobs/:id', authenticateToken, async (req, res) => {
+  if (getDBStatus()) {
+    try {
+      await Job.findByIdAndDelete(req.params.id);
+    } catch (e) {
+      console.warn('Mongo delete job error:', e.message);
+    }
+  }
   memJobs = memJobs.filter((j) => j._id !== req.params.id);
   res.json({ message: 'Job posting deleted' });
 });
@@ -295,7 +289,7 @@ app.delete('/api/jobs/:id', authenticateToken, (req, res) => {
 // ==========================================
 // 4. APPLICATIONS TRACKING
 // ==========================================
-app.post('/api/jobs/:id/apply', authenticateToken, (req, res) => {
+app.post('/api/jobs/:id/apply', authenticateToken, async (req, res) => {
   const jobId = req.params.id;
   const job = memJobs.find((j) => j._id === jobId);
   if (!job) return res.status(404).json({ message: 'Job not found' });
@@ -333,6 +327,15 @@ app.post('/api/jobs/:id/apply', authenticateToken, (req, res) => {
   };
 
   memApplications.unshift(newApp);
+
+  if (getDBStatus()) {
+    try {
+      await Application.create(newApp);
+    } catch (e) {
+      console.warn('Mongo application create error:', e.message);
+    }
+  }
+
   res.status(201).json({ message: 'Application submitted successfully!', application: newApp });
 });
 
@@ -352,13 +355,24 @@ app.get('/api/applications/all', authenticateToken, (req, res) => {
   res.json(memApplications);
 });
 
-app.patch('/api/applications/:id/status', authenticateToken, (req, res) => {
+app.patch('/api/applications/:id/status', authenticateToken, async (req, res) => {
   const { status, notes } = req.body;
   const appItem = memApplications.find((a) => a._id === req.params.id);
   if (!appItem) return res.status(404).json({ message: 'Application not found' });
 
   if (status) appItem.status = status;
   if (notes) appItem.notes = notes;
+
+  if (getDBStatus()) {
+    try {
+      await Application.findByIdAndUpdate(req.params.id, {
+        ...(status ? { status } : {}),
+        ...(notes ? { notes } : {}),
+      });
+    } catch (e) {
+      console.warn('Mongo application status update error:', e.message);
+    }
+  }
 
   res.json({ message: 'Status updated', application: appItem });
 });
@@ -394,7 +408,7 @@ app.get('/api/alumni', (req, res) => {
   res.json(alumniList);
 });
 
-app.post('/api/mentorship/request', authenticateToken, (req, res) => {
+app.post('/api/mentorship/request', authenticateToken, async (req, res) => {
   const { alumniId, alumniName, topic, message } = req.body;
 
   if (!alumniId || !message) {
@@ -415,6 +429,15 @@ app.post('/api/mentorship/request', authenticateToken, (req, res) => {
   };
 
   memMentorships.unshift(newMentorship);
+
+  if (getDBStatus()) {
+    try {
+      await Mentorship.create(newMentorship);
+    } catch (e) {
+      console.warn('Mongo mentorship create error:', e.message);
+    }
+  }
+
   res.status(201).json({ message: 'Mentorship request sent!', request: newMentorship });
 });
 
@@ -428,12 +451,21 @@ app.get('/api/mentorship/my', authenticateToken, (req, res) => {
   res.json(requests);
 });
 
-app.patch('/api/mentorship/:id/status', authenticateToken, (req, res) => {
+app.patch('/api/mentorship/:id/status', authenticateToken, async (req, res) => {
   const { status } = req.body;
   const ment = memMentorships.find((m) => m._id === req.params.id);
   if (!ment) return res.status(404).json({ message: 'Request not found' });
 
   ment.status = status || ment.status;
+
+  if (getDBStatus()) {
+    try {
+      await Mentorship.findByIdAndUpdate(req.params.id, { status: ment.status });
+    } catch (e) {
+      console.warn('Mongo mentorship update error:', e.message);
+    }
+  }
+
   res.json({ message: 'Request status updated', request: ment });
 });
 
@@ -461,7 +493,7 @@ app.get('/api/experiences', (req, res) => {
   res.json(exps);
 });
 
-app.post('/api/experiences', authenticateToken, (req, res) => {
+app.post('/api/experiences', authenticateToken, async (req, res) => {
   const { company, role, batch, packageCTC, status, difficulty, rounds, tips } = req.body;
 
   if (!company || !role || !tips) {
@@ -485,21 +517,79 @@ app.post('/api/experiences', authenticateToken, (req, res) => {
   };
 
   memExperiences.unshift(newExp);
+
+  if (getDBStatus()) {
+    try {
+      await Experience.create(newExp);
+    } catch (e) {
+      console.warn('Mongo experience create error:', e.message);
+    }
+  }
+
   res.status(201).json(newExp);
 });
 
-app.post('/api/experiences/:id/like', (req, res) => {
+app.post('/api/experiences/:id/like', async (req, res) => {
   const exp = memExperiences.find((e) => e._id === req.params.id);
   if (!exp) return res.status(404).json({ message: 'Experience not found' });
   exp.likes = (exp.likes || 0) + 1;
+
+  if (getDBStatus()) {
+    try {
+      await Experience.findByIdAndUpdate(req.params.id, { likes: exp.likes });
+    } catch (e) {
+      console.warn('Mongo experience like update error:', e.message);
+    }
+  }
+
   res.json({ likes: exp.likes });
 });
 
-// Start Server
-app.listen(PORT, () => {
-  console.log(`=================================================`);
-  console.log(`🚀 PlaceHub Server running on http://localhost:${PORT}`);
-  console.log(`📚 Technology Stack: React.js + Node.js + MongoDB`);
-  console.log(`🎓 Placement & Alumni Portal API ready`);
-  console.log(`=================================================`);
-});
+// Start Server after waiting for database connection
+const startServer = async () => {
+  // Wait for database connection attempt before serving requests
+  const connected = await connectDB();
+  if (connected) {
+    try {
+      const userCount = await User.countDocuments();
+      if (userCount === 0) {
+        console.log('[Seed] Seeding MongoDB with initial PlaceHub data...');
+        await User.insertMany(initialUsers);
+        await Job.insertMany(initialJobs);
+        await Application.insertMany(initialApplications);
+        await Experience.insertMany(initialExperiences);
+        await Mentorship.insertMany(initialMentorships);
+        console.log('[Seed] MongoDB successfully seeded!');
+      } else {
+        console.log(`[Database] Found ${userCount} existing users in MongoDB.`);
+      }
+
+      // Hydrate in-memory cache with database records
+      const [dbUsers, dbJobs, dbApps, dbExps, dbMents] = await Promise.all([
+        User.find({}),
+        Job.find({}),
+        Application.find({}),
+        Experience.find({}),
+        Mentorship.find({}),
+      ]);
+      if (dbUsers.length > 0) memUsers = dbUsers.map((u) => (u.toObject ? u.toObject() : u));
+      if (dbJobs.length > 0) memJobs = dbJobs.map((j) => (j.toObject ? j.toObject() : j));
+      if (dbApps.length > 0) memApplications = dbApps.map((a) => (a.toObject ? a.toObject() : a));
+      if (dbExps.length > 0) memExperiences = dbExps.map((e) => (e.toObject ? e.toObject() : e));
+      if (dbMents.length > 0) memMentorships = dbMents.map((m) => (m.toObject ? m.toObject() : m));
+    } catch (e) {
+      console.warn('[Seed Warning] MongoDB auto-seed/cache hydration skipped:', e.message);
+    }
+  }
+
+  app.listen(PORT, () => {
+    console.log(`=================================================`);
+    console.log(`🚀 PlaceHub Server running on http://localhost:${PORT}`);
+    console.log(`📚 Technology Stack: React.js + Node.js + MongoDB`);
+    console.log(`🎓 Placement & Alumni Portal API ready`);
+    console.log(`💾 Database Status: ${getDBStatus() ? 'MongoDB Connected' : 'In-Memory Fallback Active'}`);
+    console.log(`=================================================`);
+  });
+};
+
+startServer();
