@@ -1,5 +1,7 @@
 import React, { useState, useEffect } from 'react';
+
 import Navbar from './components/Navbar';
+import AuthPage from './components/AuthPage';
 import StatsBanner from './components/StatsBanner';
 import JobBoard from './components/JobBoard';
 import ApplicationTracker from './components/ApplicationTracker';
@@ -8,22 +10,32 @@ import InterviewExperienceHub from './components/InterviewExperienceHub';
 import AnalyticsView from './components/AnalyticsView';
 import AdminDashboard from './components/AdminDashboard';
 import NewJobModal from './components/NewJobModal';
-import { api } from './services/api';
+
+import {
+  api,
+  getStoredUser,
+  removeAuthToken,
+  removeStoredUser,
+} from './services/api';
+
 import { Layers } from 'lucide-react';
-import { User, Job, Application, Alumni, InterviewExperience, Stats, MentorshipRequestData } from './types';
+
+import {
+  User,
+  Job,
+  Application,
+  Alumni,
+  InterviewExperience,
+  Stats,
+  MentorshipRequestData,
+} from './types';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<string>('drives');
-  const [currentUser, setCurrentUser] = useState<User>({
-    _id: 'u_student_1',
-    name: 'Rahul Sharma',
-    email: 'rahul.student@college.edu',
-    role: 'student',
-    branch: 'Computer Science',
-    cgpa: 8.9,
-    graduationYear: 2026,
-    avatar: 'https://images.unsplash.com/photo-1539571696357-5a69c17a67c6?auto=format&fit=crop&q=80&w=200',
-  });
+  const [activeTab, setActiveTab] = useState('drives');
+
+  const [currentUser, setCurrentUser] = useState<User | null>(
+    () => getStoredUser()
+  );
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [myApplications, setMyApplications] = useState<Application[]>([]);
@@ -31,155 +43,252 @@ export default function App() {
   const [alumni, setAlumni] = useState<Alumni[]>([]);
   const [experiences, setExperiences] = useState<InterviewExperience[]>([]);
   const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [isNewJobModalOpen, setIsNewJobModalOpen] = useState<boolean>(false);
 
-  // Initial demo login for smooth experience
-  const performDemoLogin = async (role: string) => {
-    let email = 'rahul.student@college.edu';
-    if (role === 'alumni') email = 'arjun.alumni@google.com';
-    if (role === 'admin') email = 'tpo.admin@college.edu';
+  const [loading, setLoading] = useState(true);
+  const [isNewJobModalOpen, setIsNewJobModalOpen] = useState(false);
 
-    try {
-      const res = await api.login(email, 'password123');
-      setCurrentUser(res.user);
-      if (res.user.role === 'admin') {
-        setActiveTab('admin');
-      } else if (res.user.role === 'alumni') {
-        setActiveTab('alumni');
-      } else {
-        setActiveTab('drives');
-      }
-      loadUserData(res.user);
-    } catch (e: any) {
-      console.warn('Demo login fetch failed, falling back:', e.message);
-    }
-  };
-
-  const loadUserData = async (user: User | null) => {
-    try {
-      if (user?.role === 'admin') {
-        const allApps = await api.getAllApplications();
-        setAllApplications(allApps);
-      } else {
-        const myApps = await api.getMyApplications();
-        setMyApplications(myApps);
-      }
-    } catch (e: any) {
-      console.warn('Failed to load apps:', e.message);
-    }
-  };
-
+  // Load public portal data.
   const loadAllData = async () => {
     try {
       setLoading(true);
-      const [jobsData, alumniData, expsData, statsData] = await Promise.all([
-        api.getJobs(),
-        api.getAlumni(),
-        api.getExperiences(),
-        api.getStats(),
-      ]);
+
+      const [jobsData, alumniData, experiencesData, statsData] =
+        await Promise.all([
+          api.getJobs(),
+          api.getAlumni(),
+          api.getExperiences(),
+          api.getStats(),
+        ]);
 
       setJobs(jobsData);
       setAlumni(alumniData);
-      setExperiences(expsData);
+      setExperiences(experiencesData);
       setStats(statsData);
-
-      // Default demo login for student Rahul
-      await performDemoLogin('student');
-    } catch (err) {
-      console.error('Data load error:', err);
+    } catch (error) {
+      console.error('Failed to load portal data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  useEffect(() => {
-    loadAllData();
-  }, []);
-
-  // Handlers
-  const handleApplyJob = async (jobId: string) => {
-    const res = await api.applyJob(jobId);
-    setMyApplications((prev) => [res.application, ...prev]);
-    // Also update all applications if admin views
-    setAllApplications((prev) => [res.application, ...prev]);
+  // Load applications for the signed-in user.
+  const loadUserData = async (user: User) => {
+    try {
+      if (user.role === 'admin') {
+        const applications = await api.getAllApplications();
+        setAllApplications(applications);
+      } else {
+        const applications = await api.getMyApplications();
+        setMyApplications(applications);
+      }
+    } catch (error) {
+      console.error('Failed to load applications:', error);
+    }
   };
 
-  const handleCreateJob = async (jobData: Partial<Job>) => {
-    const created = await api.createJob(jobData);
-    setJobs((prev) => [created, ...prev]);
+  useEffect(() => {
+    void loadAllData();
+  }, []);
+
+  // Handle successful login or registration.
+  const handleAuthSuccess = async (user: User) => {
+    setCurrentUser(user);
+
+    if (user.role === 'admin') {
+      setActiveTab('admin');
+    } else if (user.role === 'alumni') {
+      setActiveTab('alumni');
+    } else {
+      setActiveTab('drives');
+    }
+
+    await loadUserData(user);
+  };
+
+  // Logout and clear the local session.
+  const handleLogout = () => {
+    removeAuthToken();
+    removeStoredUser();
+
+    setCurrentUser(null);
+    setMyApplications([]);
+    setAllApplications([]);
+    setIsNewJobModalOpen(false);
     setActiveTab('drives');
   };
 
-  const handleUpdateAppStatus = async (appId: string, newStatus: string) => {
-    await api.updateApplicationStatus(appId, newStatus);
-    setAllApplications((prev) =>
-      prev.map((a) => (a._id === appId ? { ...a, status: newStatus } : a))
-    );
-    setMyApplications((prev) =>
-      prev.map((a) => (a._id === appId ? { ...a, status: newStatus } : a))
-    );
+  // Job application.
+  const handleApplyJob = async (jobId: string) => {
+    try {
+      const result = await api.applyJob(jobId);
+      setMyApplications((previous) => [
+        result.application,
+        ...previous,
+      ]);
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : 'Unable to apply for this job.'
+      );
+    }
   };
 
-  const handleRequestMentorship = async (data: MentorshipRequestData) => {
-    return await api.requestMentorship(data);
+  // Create a placement drive.
+  const handleCreateJob = async (jobData: Partial<Job>) => {
+    try {
+      const created = await api.createJob(jobData);
+      setJobs((previous) => [created, ...previous]);
+      setIsNewJobModalOpen(false);
+      setActiveTab('drives');
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : 'Unable to create the placement drive.'
+      );
+    }
   };
 
-  const handlePostExperience = async (data: Partial<InterviewExperience>) => {
-    const created = await api.createExperience(data);
-    setExperiences((prev) => [created, ...prev]);
+  // Update application status.
+  const handleUpdateAppStatus = async (
+    applicationId: string,
+    newStatus: string
+  ) => {
+    try {
+      await api.updateApplicationStatus(applicationId, newStatus);
+
+      setAllApplications((previous) =>
+        previous.map((application) =>
+          application._id === applicationId
+            ? { ...application, status: newStatus }
+            : application
+        )
+      );
+
+      setMyApplications((previous) =>
+        previous.map((application) =>
+          application._id === applicationId
+            ? { ...application, status: newStatus }
+            : application
+        )
+      );
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : 'Unable to update the application.'
+      );
+    }
   };
 
+  // Request alumni mentorship.
+  const handleRequestMentorship = async (
+    data: MentorshipRequestData
+  ) => {
+    return api.requestMentorship(data);
+  };
+
+  // Post interview experience.
+  const handlePostExperience = async (
+    data: Partial<InterviewExperience>
+  ) => {
+    try {
+      const created = await api.createExperience(data);
+      setExperiences((previous) => [created, ...previous]);
+    } catch (error) {
+      alert(
+        error instanceof Error
+          ? error.message
+          : 'Unable to post your experience.'
+      );
+    }
+  };
+
+  // Like interview experience.
   const handleLikeExperience = async (id: string) => {
-    const res = await api.likeExperience(id);
-    setExperiences((prev) =>
-      prev.map((e) => (e._id === id ? { ...e, likes: res.likes } : e))
-    );
+    try {
+      const result = await api.likeExperience(id);
+
+      setExperiences((previous) =>
+        previous.map((experience) =>
+          experience._id === id
+            ? { ...experience, likes: result.likes }
+            : experience
+        )
+      );
+    } catch (error) {
+      console.error('Unable to like experience:', error);
+    }
   };
+
+  // Show login and registration to visitors.
+  if (!currentUser) {
+    return (
+      <>
+        <AuthPage onSuccess={handleAuthSuccess} />
+
+        <footer
+          style={{
+            textAlign: 'center',
+            padding: '24px',
+            color: '#64748b',
+            background: '#0f172a',
+          }}
+        >
+          PlaceHub — College Placement & Alumni Engagement Portal
+        </footer>
+      </>
+    );
+  }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Top Navbar */}
+    <div
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        flexDirection: 'column',
+      }}
+    >
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         currentUser={currentUser}
-        onSelectDemoUser={performDemoLogin}
-        onLogout={() => performDemoLogin('student')}
+        onSelectDemoUser={() => {
+          // Demo role switching is disabled for authenticated accounts.
+        }}
+        onLogout={handleLogout}
       />
 
-      {/* Main Content Area */}
-      <main style={{ flex: 1, padding: '32px 0 64px 0' }}>
+      <main style={{ flex: 1, padding: '32px 0 64px' }}>
         <div className="container">
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '60px 0', color: '#64748b' }}>
-              <div style={{
-                width: '36px',
-                height: '36px',
-                border: '3px solid #e2e8f0',
-                borderTopColor: '#2563eb',
-                borderRadius: '50%',
-                margin: '0 auto 16px auto',
-                animation: 'spin 1s linear infinite'
-              }} />
-              <p style={{ fontWeight: '600', fontSize: '0.95rem' }}>Loading placement records & live drives...</p>
+            <div
+              style={{
+                textAlign: 'center',
+                padding: '60px 0',
+                color: '#64748b',
+              }}
+            >
+              Loading placement records and live drives...
             </div>
           ) : (
             <>
-              {/* Top Placement Insights Banner (Visible on Drives & Stats) */}
               {(activeTab === 'drives' || activeTab === 'stats') && (
                 <StatsBanner stats={stats} />
               )}
 
-              {/* Active Tab View */}
               {activeTab === 'drives' && (
                 <JobBoard
                   jobs={jobs}
                   currentUser={currentUser}
                   myApplications={myApplications}
                   onApplyJob={handleApplyJob}
-                  onOpenNewJobModal={() => setIsNewJobModalOpen(true)}
+                  onOpenNewJobModal={() => {
+                    if (currentUser.role === 'admin') {
+                      setIsNewJobModalOpen(true);
+                    }
+                  }}
                 />
               )}
 
@@ -207,9 +316,11 @@ export default function App() {
                 />
               )}
 
-              {activeTab === 'stats' && <AnalyticsView stats={stats} />}
+              {activeTab === 'stats' && (
+                <AnalyticsView stats={stats} />
+              )}
 
-              {activeTab === 'admin' && (
+              {activeTab === 'admin' && currentUser.role === 'admin' && (
                 <AdminDashboard
                   applications={allApplications}
                   jobs={jobs}
@@ -222,8 +333,7 @@ export default function App() {
         </div>
       </main>
 
-      {/* New Drive Modal */}
-      {isNewJobModalOpen && (
+      {isNewJobModalOpen && currentUser.role === 'admin' && (
         <NewJobModal
           currentUser={currentUser}
           onClose={() => setIsNewJobModalOpen(false)}
@@ -231,39 +341,63 @@ export default function App() {
         />
       )}
 
-      {/* Footer */}
-      <footer style={{
-        background: '#0f172a',
-        color: '#94a3b8',
-        borderTop: '1px solid #1e293b',
-        padding: '32px 0',
-        fontSize: '0.85rem',
-      }}>
-        <div className="container" style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: '16px',
-        }}>
+      <footer
+        style={{
+          background: '#0f172a',
+          color: '#94a3b8',
+          borderTop: '1px solid #1e293b',
+          padding: '32px 0',
+          fontSize: '0.85rem',
+        }}
+      >
+        <div
+          className="container"
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '16px',
+          }}
+        >
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'white', fontWeight: '800', fontSize: '1.05rem', marginBottom: '4px' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px',
+                color: 'white',
+                fontWeight: 800,
+                fontSize: '1.05rem',
+                marginBottom: '4px',
+              }}
+            >
               <span>PlaceHub</span>
-              <span className="badge badge-blue" style={{ fontSize: '0.65rem' }}>MERN Stack</span>
+              <span className="badge badge-blue" style={{ fontSize: '0.65rem' }}>
+                MERN Stack
+              </span>
             </div>
+
             <p style={{ color: '#64748b' }}>
-              College Placement & Alumni Engagement Portal • Built with React 19, TypeScript, Node.js & MongoDB
+              College Placement & Alumni Engagement Portal • Built with React,
+              TypeScript, Node.js and MongoDB
             </p>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#38bdf8' }}>
-              <Layers size={14} /> React 19 + TypeScript
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '12px',
+              flexWrap: 'wrap',
+            }}
+          >
+            <span>
+              <Layers size={14} style={{ verticalAlign: 'middle' }} /> React +
+              TypeScript
             </span>
-            <span>•</span>
-            <span style={{ color: '#4ade80' }}>Node.js / Express Backend</span>
-            <span>•</span>
-            <span style={{ color: '#a78bfa' }}>MongoDB Database</span>
+            <span>Node.js / Express</span>
+            <span>MongoDB</span>
           </div>
         </div>
       </footer>
