@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # 🎓 PlaceHub — College Placement & Alumni Portal
 
 PlaceHub is a full-stack web application designed for engineering and degree colleges to streamline **campus placement drives**, **student application tracking**, and **alumni mentorship & referrals**.
@@ -164,3 +165,7 @@ Use the **Quick Demo Switcher** in the top right navbar to switch between roles 
 | `POST` | `/api/experiences` | Post new interview experience |
 | `POST` | `/api/experiences/:id/like` | Upvote an interview experience |
 | `GET` | `/api/stats` | Placement analytics and department statistics |
+=======
+# PlaceHub.
+College Placement &amp; Alumni Portal built with React and Node.js
+>>>>>>> e19be23f8aa8c31f163a25f8979d49de1681de79
