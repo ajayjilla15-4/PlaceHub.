@@ -5,10 +5,8 @@ import {
   Users,
   BookOpen,
   BarChart3,
-  UserCheck,
-  ShieldAlert,
   ChevronDown,
-  CheckCircle,
+  LogOut,
 } from 'lucide-react';
 import { User } from '../types';
 
@@ -20,260 +18,373 @@ interface NavbarProps {
   onLogout: () => void;
 }
 
-export default function Navbar({
+const Navbar: React.FC<NavbarProps> = ({
   activeTab,
   setActiveTab,
   currentUser,
-  onSelectDemoUser,
-  onLogout: _onLogout,
-}: NavbarProps) {
+  onLogout,
+}) => {
   const [dropdownOpen, setDropdownOpen] = useState(false);
 
+  const navItems = [
+    {
+      id: 'drives',
+      label: 'Placement Drives',
+      icon: Briefcase,
+      roles: ['student', 'alumni', 'admin'],
+    },
+    {
+      id: 'applications',
+      label: 'My Applications',
+      icon: BookOpen,
+      roles: ['student'],
+    },
+    {
+      id: 'alumni',
+      label: 'Alumni Network',
+      icon: Users,
+      roles: ['student', 'alumni', 'admin'],
+    },
+    {
+      id: 'interviews',
+      label: 'Interview Experiences',
+      icon: GraduationCap,
+      roles: ['student', 'alumni', 'admin'],
+    },
+    {
+      id: 'dashboard',
+      label: 'Admin Dashboard',
+      icon: BarChart3,
+      roles: ['admin'],
+    },
+  ];
+
+  const visibleNavItems = navItems.filter((item) =>
+    currentUser ? item.roles.includes(currentUser.role) : false
+  );
+
+  const getRoleLabel = (role: string) => {
+    switch (role) {
+      case 'admin':
+        return 'TPO Officer';
+      case 'student':
+        return 'Student';
+      case 'alumni':
+        return 'Alumni';
+      default:
+        return role;
+    }
+  };
+
   return (
-    <header style={{
-      background: '#ffffff',
-      borderBottom: '1px solid #e2e8f0',
-      position: 'sticky',
-      top: 0,
-      zIndex: 50,
-      backdropFilter: 'blur(8px)',
-    }}>
-      <div className="container" style={{
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        height: '72px',
-      }}>
-        {/* Logo */}
-        <div
+    <header
+      style={{
+        width: '100%',
+        background: '#ffffff',
+        borderBottom: '1px solid #e2e8f0',
+        position: 'sticky',
+        top: 0,
+        zIndex: 50,
+      }}
+    >
+      <div
+        style={{
+          maxWidth: '1400px',
+          margin: '0 auto',
+          padding: '12px 24px',
+          minHeight: '76px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '20px',
+          flexWrap: 'wrap',
+        }}
+      >
+        {/* PlaceHub Logo */}
+        <button
+          type="button"
           onClick={() => setActiveTab('drives')}
-          style={{ display: 'flex', alignItems: 'center', gap: '12px', cursor: 'pointer' }}
+          aria-label="Go to Placement Drives"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            border: 'none',
+            background: 'transparent',
+            cursor: 'pointer',
+            padding: 0,
+            flexShrink: 0,
+          }}
         >
-          <div style={{
-            background: 'linear-gradient(135deg, #2563eb, #1d4ed8)',
-            color: 'white',
-            width: '42px',
-            height: '42px',
-            borderRadius: '12px',
+          <div
+            style={{
+              width: '42px',
+              height: '42px',
+              borderRadius: '12px',
+              background: '#2563eb',
+              color: '#ffffff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <GraduationCap size={25} />
+          </div>
+
+          <div style={{ textAlign: 'left' }}>
+            <div
+              style={{
+                fontSize: '1.35rem',
+                fontWeight: 800,
+                color: '#0f172a',
+                lineHeight: 1.2,
+              }}
+            >
+              PlaceHub
+            </div>
+
+            <div
+              style={{
+                fontSize: '0.7rem',
+                color: '#64748b',
+                fontWeight: 500,
+              }}
+            >
+              Placement & Alumni Portal
+            </div>
+          </div>
+        </button>
+
+        {/* Navigation Links */}
+        <nav
+          style={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 4px 10px rgba(37,99,235,0.25)',
-          }}>
-            <GraduationCap size={24} />
-          </div>
-          <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-              <span style={{ fontSize: '1.25rem', fontWeight: '800', color: '#0f172a', letterSpacing: '-0.02em' }}>
-                PlaceHub
-              </span>
-              <span className="badge badge-blue" style={{ fontSize: '0.68rem', padding: '2px 8px' }}>
-                Campus Edition
-              </span>
-            </div>
-            <p style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '500' }}>
-              Placement & Alumni Portal
-            </p>
-          </div>
-        </div>
+            gap: '6px',
+            flexWrap: 'wrap',
+            flex: 1,
+          }}
+        >
+          {visibleNavItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
 
-        {/* Navigation Tabs */}
-        <nav style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <button
-            onClick={() => setActiveTab('drives')}
-            className="btn"
-            style={{
-              background: activeTab === 'drives' ? '#eff6ff' : 'transparent',
-              color: activeTab === 'drives' ? '#2563eb' : '#475569',
-              fontWeight: activeTab === 'drives' ? '700' : '500',
-            }}
-          >
-            <Briefcase size={17} />
-            Placement Drives
-          </button>
-
-          <button
-            onClick={() => setActiveTab('alumni')}
-            className="btn"
-            style={{
-              background: activeTab === 'alumni' ? '#eff6ff' : 'transparent',
-              color: activeTab === 'alumni' ? '#2563eb' : '#475569',
-              fontWeight: activeTab === 'alumni' ? '700' : '500',
-            }}
-          >
-            <Users size={17} />
-            Alumni Network
-          </button>
-
-          <button
-            onClick={() => setActiveTab('experiences')}
-            className="btn"
-            style={{
-              background: activeTab === 'experiences' ? '#eff6ff' : 'transparent',
-              color: activeTab === 'experiences' ? '#2563eb' : '#475569',
-              fontWeight: activeTab === 'experiences' ? '700' : '500',
-            }}
-          >
-            <BookOpen size={17} />
-            Interview Experiences
-          </button>
-
-          <button
-            onClick={() => setActiveTab('stats')}
-            className="btn"
-            style={{
-              background: activeTab === 'stats' ? '#eff6ff' : 'transparent',
-              color: activeTab === 'stats' ? '#2563eb' : '#475569',
-              fontWeight: activeTab === 'stats' ? '700' : '500',
-            }}
-          >
-            <BarChart3 size={17} />
-            Placement Analytics
-          </button>
-
-          {currentUser?.role === 'student' && (
-            <button
-              onClick={() => setActiveTab('applications')}
-              className="btn"
-              style={{
-                background: activeTab === 'applications' ? '#eff6ff' : 'transparent',
-                color: activeTab === 'applications' ? '#2563eb' : '#475569',
-                fontWeight: activeTab === 'applications' ? '700' : '500',
-              }}
-            >
-              <UserCheck size={17} />
-              My Applications
-            </button>
-          )}
-
-          {currentUser?.role === 'admin' && (
-            <button
-              onClick={() => setActiveTab('admin')}
-              className="btn"
-              style={{
-                background: activeTab === 'admin' ? '#fef2f2' : 'transparent',
-                color: activeTab === 'admin' ? '#ef4444' : '#475569',
-                fontWeight: activeTab === 'admin' ? '700' : '500',
-              }}
-            >
-              <ShieldAlert size={17} />
-              TPO Admin Hub
-            </button>
-          )}
+            return (
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => {
+                  setActiveTab(item.id);
+                  setDropdownOpen(false);
+                }}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  padding: '10px 12px',
+                  border: 'none',
+                  borderRadius: '10px',
+                  background: isActive ? '#eff6ff' : 'transparent',
+                  color: isActive ? '#2563eb' : '#475569',
+                  fontSize: '0.85rem',
+                  fontWeight: isActive ? 700 : 500,
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <Icon size={17} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
         </nav>
 
-        {/* User Account / Role Switcher */}
-        <div style={{ position: 'relative' }}>
-          <div
-            onClick={() => setDropdownOpen(!dropdownOpen)}
+        {/* User Profile */}
+        <div style={{ position: 'relative', flexShrink: 0 }}>
+          <button
+            type="button"
+            onClick={() => setDropdownOpen((open) => !open)}
+            aria-expanded={dropdownOpen}
+            aria-label="Open user menu"
             style={{
               display: 'flex',
               alignItems: 'center',
               gap: '10px',
-              padding: '6px 12px',
-              borderRadius: '12px',
+              padding: '7px 10px',
               border: '1px solid #e2e8f0',
+              borderRadius: '12px',
+              background: '#ffffff',
               cursor: 'pointer',
-              background: '#f8fafc',
             }}
           >
-            <img
-              src={currentUser?.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=250'}
-              alt={currentUser?.name}
-              style={{ width: '34px', height: '34px', borderRadius: '50%', objectFit: 'cover' }}
+            <div
+              style={{
+                width: '38px',
+                height: '38px',
+                borderRadius: '50%',
+                background: '#dbeafe',
+                color: '#1d4ed8',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '1rem',
+                fontWeight: 800,
+                overflow: 'hidden',
+                flexShrink: 0,
+              }}
+            >
+              {currentUser?.avatar ? (
+                <img
+                  src={currentUser.avatar}
+                  alt={currentUser.name}
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                  }}
+                />
+              ) : (
+                currentUser?.name?.charAt(0).toUpperCase() || 'U'
+              )}
+            </div>
+
+            <div style={{ textAlign: 'left', maxWidth: '150px' }}>
+              <div
+                style={{
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  color: '#0f172a',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {currentUser?.name || 'User'}
+              </div>
+
+              <div
+                style={{
+                  fontSize: '0.72rem',
+                  color: '#64748b',
+                  marginTop: '2px',
+                }}
+              >
+                {currentUser ? getRoleLabel(currentUser.role) : ''}
+              </div>
+            </div>
+
+            <ChevronDown
+              size={16}
+              color="#64748b"
+              style={{
+                transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.2s',
+              }}
             />
-            <div style={{ textAlign: 'left', lineHeight: '1.2' }}>
-              <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#0f172a' }}>
-                {currentUser?.name || 'Rahul Sharma'}
-              </div>
-              <div style={{ fontSize: '0.72rem', color: '#64748b', textTransform: 'capitalize' }}>
-                {currentUser?.role === 'admin' ? 'TPO Officer' : currentUser?.role}
-              </div>
-            </div>
-            <ChevronDown size={15} color="#94a3b8" />
-          </div>
+          </button>
 
-          {/* Quick Demo Role Switcher Dropdown */}
+          {/* Profile Dropdown: User Information and Logout Only */}
           {dropdownOpen && (
-            <div style={{
-              position: 'absolute',
-              right: 0,
-              top: '50px',
-              width: '280px',
-              background: 'white',
-              borderRadius: '16px',
-              border: '1px solid #e2e8f0',
-              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.1)',
-              padding: '12px',
-              zIndex: 100,
-            }}>
-              <div style={{ fontSize: '0.75rem', fontWeight: '700', color: '#94a3b8', textTransform: 'uppercase', padding: '4px 8px 8px 8px', borderBottom: '1px solid #f1f5f9' }}>
-                Quick Demo Switcher
-              </div>
+            <>
+              <button
+                type="button"
+                aria-label="Close user menu"
+                onClick={() => setDropdownOpen(false)}
+                style={{
+                  position: 'fixed',
+                  inset: 0,
+                  zIndex: 99,
+                  border: 'none',
+                  background: 'transparent',
+                }}
+              />
 
               <div
-                onClick={() => { onSelectDemoUser('student'); setDropdownOpen(false); }}
                 style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '10px',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  background: currentUser?.role === 'student' ? '#eff6ff' : 'transparent',
+                  position: 'absolute',
+                  right: 0,
+                  top: 'calc(100% + 10px)',
+                  width: '240px',
+                  background: '#ffffff',
+                  borderRadius: '16px',
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 10px 25px -5px rgba(0,0,0,0.12)',
+                  padding: '12px',
+                  zIndex: 100,
                 }}
               >
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#2563eb' }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: '600' }}>Rahul Sharma</div>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Student (CGPA 8.9)</div>
-                </div>
-                {currentUser?.role === 'student' && <CheckCircle size={16} color="#2563eb" />}
-              </div>
+                {/* User Information */}
+                <div
+                  style={{
+                    padding: '8px',
+                    borderBottom: '1px solid #e2e8f0',
+                    marginBottom: '8px',
+                  }}
+                >
+                  <div
+                    style={{
+                      fontSize: '0.9rem',
+                      fontWeight: 700,
+                      color: '#0f172a',
+                      overflowWrap: 'anywhere',
+                    }}
+                  >
+                    {currentUser?.name || 'User'}
+                  </div>
 
-              <div
-                onClick={() => { onSelectDemoUser('alumni'); setDropdownOpen(false); }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '10px',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  background: currentUser?.role === 'alumni' ? '#ecfdf5' : 'transparent',
-                }}
-              >
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#10b981' }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: '600' }}>Arjun Mehta</div>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Alumni (SDE @ Google)</div>
+                  <div
+                    style={{
+                      fontSize: '0.75rem',
+                      color: '#64748b',
+                      marginTop: '4px',
+                    }}
+                  >
+                    {currentUser
+                      ? getRoleLabel(currentUser.role)
+                      : 'User'}
+                  </div>
                 </div>
-                {currentUser?.role === 'alumni' && <CheckCircle size={16} color="#10b981" />}
-              </div>
 
-              <div
-                onClick={() => { onSelectDemoUser('admin'); setDropdownOpen(false); }}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '10px',
-                  padding: '10px',
-                  borderRadius: '10px',
-                  cursor: 'pointer',
-                  background: currentUser?.role === 'admin' ? '#fef2f2' : 'transparent',
-                }}
-              >
-                <div style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#ef4444' }} />
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '0.85rem', fontWeight: '600' }}>Dr. Ramesh Kulkarni</div>
-                  <div style={{ fontSize: '0.72rem', color: '#64748b' }}>Placement Officer (TPO)</div>
-                </div>
-                {currentUser?.role === 'admin' && <CheckCircle size={16} color="#ef4444" />}
+                {/* Logout Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDropdownOpen(false);
+                    onLogout();
+                  }}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px',
+                    width: '100%',
+                    padding: '11px 10px',
+                    border: 'none',
+                    borderRadius: '10px',
+                    background: 'transparent',
+                    color: '#dc2626',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    cursor: 'pointer',
+                    textAlign: 'left',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.background = '#fef2f2';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.background = 'transparent';
+                  }}
+                >
+                  <LogOut size={17} />
+                  Logout
+                </button>
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>
     </header>
   );
-}
+};
+
+export default Navbar;
