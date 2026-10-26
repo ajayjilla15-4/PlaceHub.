@@ -1,278 +1,498 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   ThumbsUp,
   Sparkles,
   Search,
   PlusCircle,
   Send,
-} from 'lucide-react';
-import { InterviewExperience, User } from '../types';
+  X,
+} from "lucide-react";
+import type { InterviewExperience, User } from "../types";
 
 interface InterviewExperienceHubProps {
   experiences: InterviewExperience[];
   currentUser: User | null;
   onLikeExperience: (id: string) => Promise<void>;
-  onPostExperience: (data: Partial<InterviewExperience>) => Promise<void>;
+  onPostExperience: (
+    data: Partial<InterviewExperience>
+  ) => Promise<void>;
 }
 
-export default function InterviewExperienceHub({
-  experiences,
-  currentUser: _currentUser,
+const InterviewExperienceHub: React.FC<
+  InterviewExperienceHubProps
+> = ({
+  experiences = [],
+  currentUser,
   onLikeExperience,
   onPostExperience,
-}: InterviewExperienceHubProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [modalOpen, setModalOpen] = useState(false);
-  const [company, setCompany] = useState('');
-  const [role, setRole] = useState('');
-  const [packageCTC, setPackageCTC] = useState('');
-  const [difficulty, setDifficulty] = useState('Medium');
-  const [tips, setTips] = useState('');
-  const [round1, setRound1] = useState('');
-  const [round2, setRound2] = useState('');
+}) => {
+    const [searchTerm, setSearchTerm] = useState("");
+    const [modalOpen, setModalOpen] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [error, setError] = useState("");
 
-  const filteredExps = experiences.filter((exp) => {
-    return (
-      exp.company.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      exp.role.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      exp.tips.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  });
+    const [company, setCompany] = useState("");
+    const [role, setRole] = useState("");
+    const [packageCTC, setPackageCTC] = useState("");
+    const [difficulty, setDifficulty] = useState("Medium");
+    const [round1, setRound1] = useState("");
+    const [round2, setRound2] = useState("");
+    const [tips, setTips] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!company || !role || !tips) return;
+    const filteredExperiences = experiences.filter((experience) => {
+      const search = searchTerm.toLowerCase();
 
-    await onPostExperience({
-      company,
-      role,
-      packageCTC,
-      difficulty,
-      tips,
-      rounds: [
-        { roundName: 'Round 1: Online Assessment / Screening', details: round1 || 'DSA & Coding problem set' },
-        { roundName: 'Round 2: Technical & Domain', details: round2 || 'System Design, Projects & Problem Solving' },
-      ],
+      return (
+        (experience.company ?? "").toLowerCase().includes(search) ||
+        (experience.role ?? "").toLowerCase().includes(search) ||
+        (experience.tips ?? "").toLowerCase().includes(search)
+      );
     });
 
-    setModalOpen(false);
-    setCompany('');
-    setRole('');
-    setPackageCTC('');
-    setTips('');
-    setRound1('');
-    setRound2('');
-  };
+    const closeModal = () => {
+      if (submitting) return;
 
-  return (
-    <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '24px' }}>
-        <div>
-          <h2 style={{ fontSize: '1.5rem', fontWeight: '800', color: '#0f172a' }}>
-            Campus Interview Experiences & Questions Archive
-          </h2>
-          <p style={{ color: '#64748b', fontSize: '0.9rem' }}>
-            Genuine round-by-round interview debriefs, question patterns, and preparation tips from placed seniors.
-          </p>
+      setModalOpen(false);
+      setError("");
+    };
+
+    const resetForm = () => {
+      setCompany("");
+      setRole("");
+      setPackageCTC("");
+      setDifficulty("Medium");
+      setRound1("");
+      setRound2("");
+      setTips("");
+    };
+
+    const handleSubmit = async (
+      event: React.FormEvent<HTMLFormElement>
+    ) => {
+      event.preventDefault();
+      setError("");
+
+      if (!company.trim() || !role.trim() || !tips.trim()) {
+        setError("Please fill in the company, role, and interview tips.");
+        return;
+      }
+
+      try {
+        setSubmitting(true);
+
+        await onPostExperience({
+          company: company.trim(),
+          role: role.trim(),
+          packageCTC: packageCTC.trim(),
+          difficulty,
+          round1: round1.trim(),
+          round2: round2.trim(),
+          tips: tips.trim(),
+        });
+
+        resetForm();
+        setModalOpen(false);
+      } catch (err) {
+        console.error("Failed to post interview experience:", err);
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Unable to submit your experience. Please try again."
+        );
+      } finally {
+        setSubmitting(false);
+      }
+    };
+
+    return (
+      <section className="space-y-6">
+        {/* Header */}
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <Sparkles className="text-indigo-500" size={24} />
+
+              <h1 className="text-2xl font-bold text-gray-900">
+                Interview Experiences
+              </h1>
+            </div>
+
+            <p className="mt-2 text-gray-500">
+              Learn from real interview experiences and prepare for your
+              next opportunity.
+            </p>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => {
+              setError("");
+              setModalOpen(true);
+            }}
+            className="inline-flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-5 py-3 font-semibold text-white shadow-sm transition hover:bg-indigo-700"
+          >
+            <PlusCircle size={19} />
+            Share Your Experience
+          </button>
         </div>
 
-        <button onClick={() => setModalOpen(true)} className="btn btn-primary" style={{ padding: '10px 20px', borderRadius: '12px' }}>
-          <PlusCircle size={16} />
-          Share Your Experience
-        </button>
-      </div>
+        {/* Search */}
+        <div className="relative">
+          <Search
+            size={20}
+            className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
+          />
 
-      {/* Search */}
-      <div className="card" style={{ padding: '16px', marginBottom: '24px' }}>
-        <div style={{ position: 'relative' }}>
-          <Search size={18} color="#94a3b8" style={{ position: 'absolute', left: '14px', top: '50%', transform: 'translateY(-50%)' }} />
           <input
-            type="text"
-            placeholder="Search interview archives by company (Google, Microsoft) or keywords..."
+            type="search"
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '11px 14px 11px 42px',
-              borderRadius: '10px',
-              border: '1px solid #cbd5e1',
-              fontSize: '0.9rem',
-            }}
+            onChange={(event) => setSearchTerm(event.target.value)}
+            placeholder="Search by company, role, or interview tips..."
+            className="w-full rounded-xl border border-gray-200 bg-white py-3 pl-12 pr-4 outline-none transition focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
           />
         </div>
-      </div>
 
-      {/* Experiences List */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {filteredExps.map((exp) => (
-          <div key={exp._id} className="card" style={{ padding: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
-              <div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                  <h3 style={{ fontSize: '1.25rem', fontWeight: '800', color: '#0f172a' }}>
-                    {exp.company}
-                  </h3>
-                  <span className="badge badge-green">Offered ({exp.packageCTC})</span>
-                  <span className={`badge ${exp.difficulty === 'Hard' ? 'badge-red' : exp.difficulty === 'Medium' ? 'badge-amber' : 'badge-blue'}`}>
-                    {exp.difficulty} Difficulty
+        {/* Experiences */}
+        {filteredExperiences.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-gray-300 bg-white px-6 py-12 text-center">
+            <Sparkles
+              size={38}
+              className="mx-auto mb-4 text-indigo-400"
+            />
+
+            <h2 className="text-lg font-semibold text-gray-800">
+              {searchTerm.trim()
+                ? "No Matching Experiences Found"
+                : "No Interview Experiences Yet"}
+            </h2>
+
+            <p className="mx-auto mt-2 max-w-md text-sm text-gray-500">
+              {searchTerm.trim()
+                ? "Try another search term."
+                : "Be the first to share your interview experience and help other students prepare."}
+            </p>
+
+            {!searchTerm.trim() && (
+              <button
+                type="button"
+                onClick={() => {
+                  setError("");
+                  setModalOpen(true);
+                }}
+                className="mt-5 inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 font-medium text-white hover:bg-indigo-700"
+              >
+                <PlusCircle size={18} />
+                Add First Experience
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
+            {filteredExperiences.map((experience) => (
+              <article
+                key={experience.id}
+                className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:shadow-md"
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h2 className="text-xl font-bold text-gray-900">
+                      {experience.company}
+                    </h2>
+
+                    <p className="mt-1 text-sm text-gray-500">
+                      {experience.role}
+                    </p>
+                  </div>
+
+                  <span className="shrink-0 rounded-full bg-indigo-50 px-3 py-1 text-sm font-medium text-indigo-700">
+                    {experience.difficulty || "Not specified"}
                   </span>
                 </div>
-                <div style={{ fontSize: '0.9rem', color: '#475569', fontWeight: '600', marginTop: '4px' }}>
-                  {exp.role} • Shared by <strong style={{ color: '#0f172a' }}>{exp.authorName}</strong> (Batch of {exp.batch})
-                </div>
-              </div>
 
-              <button
-                onClick={() => onLikeExperience(exp._id)}
-                className="btn btn-secondary"
-                style={{ padding: '6px 14px', fontSize: '0.8rem', borderRadius: '20px' }}
-              >
-                <ThumbsUp size={14} color="#2563eb" />
-                <span>Helpful ({exp.likes || 0})</span>
-              </button>
-            </div>
+                {experience.packageCTC && (
+                  <p className="mt-3 text-sm font-semibold text-emerald-700">
+                    Package: {experience.packageCTC}
+                  </p>
+                )}
 
-            {/* Rounds */}
-            <div style={{ marginBottom: '18px' }}>
-              <h4 style={{ fontSize: '0.88rem', fontWeight: '700', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '10px' }}>
-                Interview Rounds Breakdown
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {exp.rounds?.map((r, i) => (
-                  <div key={i} style={{ background: '#f8fafc', padding: '12px 16px', borderRadius: '10px', borderLeft: '3px solid #2563eb' }}>
-                    <div style={{ fontSize: '0.85rem', fontWeight: '700', color: '#0f172a', marginBottom: '3px' }}>
-                      {r.roundName}
-                    </div>
-                    <div style={{ fontSize: '0.82rem', color: '#475569', lineHeight: '1.5' }}>
-                      {r.details}
-                    </div>
+                {experience.round1 && (
+                  <div className="mt-5">
+                    <h3 className="font-semibold text-gray-800">
+                      Round 1
+                    </h3>
+
+                    <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-gray-600">
+                      {experience.round1}
+                    </p>
                   </div>
-                ))}
-              </div>
-            </div>
+                )}
 
-            {/* Candidate Tips */}
-            <div style={{ background: '#eff6ff', borderRadius: '10px', padding: '14px 18px', border: '1px solid #dbeafe' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', fontWeight: '700', color: '#1e40af', marginBottom: '4px' }}>
-                <Sparkles size={16} />
-                <span>Senior Advice & Winning Strategy</span>
-              </div>
-              <p style={{ fontSize: '0.86rem', color: '#1e3a8a', lineHeight: '1.5' }}>
-                "{exp.tips}"
-              </p>
-            </div>
-          </div>
-        ))}
-      </div>
+                {experience.round2 && (
+                  <div className="mt-4">
+                    <h3 className="font-semibold text-gray-800">
+                      Round 2
+                    </h3>
 
-      {/* Share Experience Modal */}
-      {modalOpen && (
-        <div className="modal-backdrop" onClick={() => setModalOpen(false)}>
-          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '18px' }}>
-              <h3 style={{ fontSize: '1.25rem', fontWeight: '800' }}>Share Your Placement Experience</h3>
-              <button onClick={() => setModalOpen(false)} style={{ background: '#f1f5f9', borderRadius: '50%', width: '30px', height: '30px' }}>
-                ✕
-              </button>
-            </div>
+                    <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-gray-600">
+                      {experience.round2}
+                    </p>
+                  </div>
+                )}
 
-            <form onSubmit={handleSubmit}>
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', marginBottom: '4px' }}>Company Name</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. Amazon"
-                    value={company}
-                    onChange={(e) => setCompany(e.target.value)}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', marginBottom: '4px' }}>Job Role</label>
-                  <input
-                    type="text"
-                    required
-                    placeholder="e.g. SDE-1 / Data Analyst"
-                    value={role}
-                    onChange={(e) => setRole(e.target.value)}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                  />
-                </div>
-              </div>
+                {experience.tips && (
+                  <div className="mt-4 rounded-xl bg-amber-50 p-4">
+                    <h3 className="font-semibold text-amber-900">
+                      Preparation Tips
+                    </h3>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '14px' }}>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', marginBottom: '4px' }}>Package CTC</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. 18 LPA"
-                    value={packageCTC}
-                    onChange={(e) => setPackageCTC(e.target.value)}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                  />
-                </div>
-                <div>
-                  <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', marginBottom: '4px' }}>Interview Difficulty</label>
-                  <select
-                    value={difficulty}
-                    onChange={(e) => setDifficulty(e.target.value)}
-                    style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                    <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-amber-900">
+                      {experience.tips}
+                    </p>
+                  </div>
+                )}
+
+                <div className="mt-5 border-t border-gray-100 pt-4">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      void onLikeExperience(String(experience.id)).catch(
+                        (err) =>
+                          console.error(
+                            "Failed to like experience:",
+                            err
+                          )
+                      )
+                    }
+                    disabled={!currentUser}
+                    title={
+                      currentUser
+                        ? "Like this experience"
+                        : "Log in to like experiences"
+                    }
+                    className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-indigo-600 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    <option value="Easy">Easy</option>
-                    <option value="Medium">Medium</option>
-                    <option value="Hard">Hard</option>
-                  </select>
+                    <ThumbsUp size={17} />
+                    Helpful
+                  </button>
                 </div>
-              </div>
-
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', marginBottom: '4px' }}>Round 1 Details (OA / Coding)</label>
-                <input
-                  type="text"
-                  placeholder="Questions asked, topics covered..."
-                  value={round1}
-                  onChange={(e) => setRound1(e.target.value)}
-                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '14px' }}>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', marginBottom: '4px' }}>Round 2 Details (Technical / Projects)</label>
-                <input
-                  type="text"
-                  placeholder="System design, project deep dive, questions..."
-                  value={round2}
-                  onChange={(e) => setRound2(e.target.value)}
-                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                />
-              </div>
-
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontSize: '0.82rem', fontWeight: '700', marginBottom: '4px' }}>Preparation Tips & Recommendations</label>
-                <textarea
-                  rows={3}
-                  required
-                  placeholder="What should juniors prepare? Any specific platform or topic to focus on?"
-                  value={tips}
-                  onChange={(e) => setTips(e.target.value)}
-                  style={{ width: '100%', padding: '9px 12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button type="button" onClick={() => setModalOpen(false)} className="btn btn-secondary">
-                  Cancel
-                </button>
-                <button type="submit" className="btn btn-primary">
-                  <Send size={15} /> Publish Experience
-                </button>
-              </div>
-            </form>
+              </article>
+            ))}
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
+        )}
+
+        {/* Share Experience Modal */}
+        {modalOpen && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-black/60 p-4"
+            onMouseDown={(event) => {
+              if (event.target === event.currentTarget) {
+                closeModal();
+              }
+            }}
+          >
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="experience-modal-title"
+              className="my-auto w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl sm:p-8"
+            >
+              <div className="mb-6 flex items-center justify-between gap-4">
+                <div>
+                  <h2
+                    id="experience-modal-title"
+                    className="text-xl font-bold text-gray-900 sm:text-2xl"
+                  >
+                    Share Your Experience
+                  </h2>
+
+                  <p className="mt-1 text-sm text-gray-500">
+                    Help other students prepare for interviews.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  disabled={submitting}
+                  aria-label="Close modal"
+                  className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50"
+                >
+                  <X size={22} />
+                </button>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-5">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label
+                      htmlFor="experience-company"
+                      className="mb-2 block text-sm font-medium text-gray-700"
+                    >
+                      Company *
+                    </label>
+
+                    <input
+                      id="experience-company"
+                      value={company}
+                      onChange={(event) =>
+                        setCompany(event.target.value)
+                      }
+                      placeholder="e.g. Google"
+                      required
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="experience-role"
+                      className="mb-2 block text-sm font-medium text-gray-700"
+                    >
+                      Job Role *
+                    </label>
+
+                    <input
+                      id="experience-role"
+                      value={role}
+                      onChange={(event) => setRole(event.target.value)}
+                      placeholder="e.g. Software Engineer"
+                      required
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="experience-package"
+                      className="mb-2 block text-sm font-medium text-gray-700"
+                    >
+                      Package / CTC
+                    </label>
+
+                    <input
+                      id="experience-package"
+                      value={packageCTC}
+                      onChange={(event) =>
+                        setPackageCTC(event.target.value)
+                      }
+                      placeholder="e.g. 12 LPA"
+                      className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                    />
+                  </div>
+
+                  <div>
+                    <label
+                      htmlFor="experience-difficulty"
+                      className="mb-2 block text-sm font-medium text-gray-700"
+                    >
+                      Difficulty
+                    </label>
+
+                    <select
+                      id="experience-difficulty"
+                      value={difficulty}
+                      onChange={(event) =>
+                        setDifficulty(event.target.value)
+                      }
+                      className="w-full rounded-lg border border-gray-300 bg-white px-3 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                    >
+                      <option value="Easy">Easy</option>
+                      <option value="Medium">Medium</option>
+                      <option value="Hard">Hard</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="experience-round1"
+                    className="mb-2 block text-sm font-medium text-gray-700"
+                  >
+                    Round 1 Details
+                  </label>
+
+                  <textarea
+                    id="experience-round1"
+                    value={round1}
+                    onChange={(event) => setRound1(event.target.value)}
+                    placeholder="Describe the first interview round..."
+                    rows={3}
+                    className="w-full resize-y rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="experience-round2"
+                    className="mb-2 block text-sm font-medium text-gray-700"
+                  >
+                    Round 2 Details
+                  </label>
+
+                  <textarea
+                    id="experience-round2"
+                    value={round2}
+                    onChange={(event) => setRound2(event.target.value)}
+                    placeholder="Describe the second interview round..."
+                    rows={3}
+                    className="w-full resize-y rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  />
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="experience-tips"
+                    className="mb-2 block text-sm font-medium text-gray-700"
+                  >
+                    Interview Experience & Tips *
+                  </label>
+
+                  <textarea
+                    id="experience-tips"
+                    value={tips}
+                    onChange={(event) => setTips(event.target.value)}
+                    placeholder="Describe your interview experience and share preparation tips..."
+                    rows={4}
+                    required
+                    className="w-full resize-y rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
+                  />
+                </div>
+
+                {error && (
+                  <div
+                    role="alert"
+                    className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700"
+                  >
+                    {error}
+                  </div>
+                )}
+
+                <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-end">
+                  <button
+                    type="button"
+                    onClick={closeModal}
+                    disabled={submitting}
+                    className="rounded-lg border border-gray-300 px-5 py-2.5 font-medium text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+
+                  <button
+                    type="submit"
+                    disabled={submitting}
+                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    <Send size={17} />
+                    {submitting ? "Submitting..." : "Submit Experience"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+      </section>
+    );
+  };
+
+export default InterviewExperienceHub;
