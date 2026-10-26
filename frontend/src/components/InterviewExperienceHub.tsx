@@ -39,15 +39,21 @@ const InterviewExperienceHub: React.FC<
     const [round2, setRound2] = useState("");
     const [tips, setTips] = useState("");
 
-    const filteredExperiences = experiences.filter((experience) => {
-      const search = searchTerm.toLowerCase();
+    const safeExperiences = Array.isArray(experiences)
+      ? experiences
+      : [];
 
-      return (
-        (experience.company ?? "").toLowerCase().includes(search) ||
-        (experience.role ?? "").toLowerCase().includes(search) ||
-        (experience.tips ?? "").toLowerCase().includes(search)
-      );
-    });
+    const filteredExperiences = safeExperiences.filter(
+      (experience) => {
+        const search = searchTerm.toLowerCase();
+
+        return (
+          (experience.company ?? "").toLowerCase().includes(search) ||
+          (experience.role ?? "").toLowerCase().includes(search) ||
+          (experience.tips ?? "").toLowerCase().includes(search)
+        );
+      }
+    );
 
     const closeModal = () => {
       if (submitting) return;
@@ -73,9 +79,22 @@ const InterviewExperienceHub: React.FC<
       setError("");
 
       if (!company.trim() || !role.trim() || !tips.trim()) {
-        setError("Please fill in the company, role, and interview tips.");
+        setError(
+          "Please fill in the company, role, and interview tips."
+        );
         return;
       }
+
+      const rounds = [
+        {
+          roundName: "Round 1",
+          details: round1.trim(),
+        },
+        {
+          roundName: "Round 2",
+          details: round2.trim(),
+        },
+      ].filter((round) => round.details.length > 0);
 
       try {
         setSubmitting(true);
@@ -85,15 +104,17 @@ const InterviewExperienceHub: React.FC<
           role: role.trim(),
           packageCTC: packageCTC.trim(),
           difficulty,
-          round1: round1.trim(),
-          round2: round2.trim(),
+          rounds,
           tips: tips.trim(),
         });
 
         resetForm();
         setModalOpen(false);
       } catch (err) {
-        console.error("Failed to post interview experience:", err);
+        console.error(
+          "Failed to post interview experience:",
+          err
+        );
 
         setError(
           err instanceof Error
@@ -119,8 +140,8 @@ const InterviewExperienceHub: React.FC<
             </div>
 
             <p className="mt-2 text-gray-500">
-              Learn from real interview experiences and prepare for your
-              next opportunity.
+              Learn from interview experiences and prepare for
+              your next opportunity.
             </p>
           </div>
 
@@ -191,7 +212,7 @@ const InterviewExperienceHub: React.FC<
           <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
             {filteredExperiences.map((experience) => (
               <article
-                key={experience.id}
+                key={experience._id}
                 className="rounded-2xl border border-gray-200 bg-white p-6 shadow-sm transition hover:shadow-md"
               >
                 <div className="flex items-start justify-between gap-3">
@@ -216,29 +237,22 @@ const InterviewExperienceHub: React.FC<
                   </p>
                 )}
 
-                {experience.round1 && (
-                  <div className="mt-5">
-                    <h3 className="font-semibold text-gray-800">
-                      Round 1
-                    </h3>
+                {/* Interview rounds */}
+                {Array.isArray(experience.rounds) &&
+                  experience.rounds.map((round, index) => (
+                    <div
+                      key={`${experience._id}-${round.roundName}-${index}`}
+                      className="mt-4"
+                    >
+                      <h3 className="font-semibold text-gray-800">
+                        {round.roundName || `Round ${index + 1}`}
+                      </h3>
 
-                    <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-gray-600">
-                      {experience.round1}
-                    </p>
-                  </div>
-                )}
-
-                {experience.round2 && (
-                  <div className="mt-4">
-                    <h3 className="font-semibold text-gray-800">
-                      Round 2
-                    </h3>
-
-                    <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-gray-600">
-                      {experience.round2}
-                    </p>
-                  </div>
-                )}
+                      <p className="mt-1 whitespace-pre-wrap text-sm leading-6 text-gray-600">
+                        {round.details}
+                      </p>
+                    </div>
+                  ))}
 
                 {experience.tips && (
                   <div className="mt-4 rounded-xl bg-amber-50 p-4">
@@ -255,15 +269,16 @@ const InterviewExperienceHub: React.FC<
                 <div className="mt-5 border-t border-gray-100 pt-4">
                   <button
                     type="button"
-                    onClick={() =>
-                      void onLikeExperience(String(experience.id)).catch(
-                        (err) =>
+                    onClick={() => {
+                      void onLikeExperience(experience._id).catch(
+                        (err) => {
                           console.error(
                             "Failed to like experience:",
                             err
-                          )
-                      )
-                    }
+                          );
+                        }
+                      );
+                    }}
                     disabled={!currentUser}
                     title={
                       currentUser
@@ -273,7 +288,7 @@ const InterviewExperienceHub: React.FC<
                     className="inline-flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-indigo-600 transition hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     <ThumbsUp size={17} />
-                    Helpful
+                    Helpful ({experience.likes ?? 0})
                   </button>
                 </div>
               </article>
@@ -355,7 +370,9 @@ const InterviewExperienceHub: React.FC<
                     <input
                       id="experience-role"
                       value={role}
-                      onChange={(event) => setRole(event.target.value)}
+                      onChange={(event) =>
+                        setRole(event.target.value)
+                      }
                       placeholder="e.g. Software Engineer"
                       required
                       className="w-full rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
@@ -415,7 +432,9 @@ const InterviewExperienceHub: React.FC<
                   <textarea
                     id="experience-round1"
                     value={round1}
-                    onChange={(event) => setRound1(event.target.value)}
+                    onChange={(event) =>
+                      setRound1(event.target.value)
+                    }
                     placeholder="Describe the first interview round..."
                     rows={3}
                     className="w-full resize-y rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
@@ -433,7 +452,9 @@ const InterviewExperienceHub: React.FC<
                   <textarea
                     id="experience-round2"
                     value={round2}
-                    onChange={(event) => setRound2(event.target.value)}
+                    onChange={(event) =>
+                      setRound2(event.target.value)
+                    }
                     placeholder="Describe the second interview round..."
                     rows={3}
                     className="w-full resize-y rounded-lg border border-gray-300 px-3 py-2.5 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100"
@@ -451,7 +472,9 @@ const InterviewExperienceHub: React.FC<
                   <textarea
                     id="experience-tips"
                     value={tips}
-                    onChange={(event) => setTips(event.target.value)}
+                    onChange={(event) =>
+                      setTips(event.target.value)
+                    }
                     placeholder="Describe your interview experience and share preparation tips..."
                     rows={4}
                     required
@@ -484,7 +507,9 @@ const InterviewExperienceHub: React.FC<
                     className="inline-flex items-center justify-center gap-2 rounded-lg bg-indigo-600 px-5 py-2.5 font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
                   >
                     <Send size={17} />
-                    {submitting ? "Submitting..." : "Submit Experience"}
+                    {submitting
+                      ? "Submitting..."
+                      : "Submit Experience"}
                   </button>
                 </div>
               </form>
