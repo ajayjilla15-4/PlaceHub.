@@ -14,8 +14,8 @@ import NewJobModal from './components/NewJobModal';
 import {
   api,
   getStoredUser,
-  removeAuthToken,
-  removeStoredUser,
+  getAuthToken,
+  clearAuthSession,
 } from './services/api';
 
 import { Layers } from 'lucide-react';
@@ -33,9 +33,7 @@ import {
 export default function App() {
   const [activeTab, setActiveTab] = useState('drives');
 
-  const [currentUser, setCurrentUser] = useState<User | null>(
-    () => getStoredUser()
-  );
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   const [jobs, setJobs] = useState<Job[]>([]);
   const [myApplications, setMyApplications] = useState<Application[]>([]);
@@ -45,13 +43,12 @@ export default function App() {
   const [stats, setStats] = useState<Stats | null>(null);
 
   const [loading, setLoading] = useState(true);
+  const [authChecking, setAuthChecking] = useState(true);
   const [isNewJobModalOpen, setIsNewJobModalOpen] = useState(false);
 
   // Load public portal data.
   const loadAllData = async () => {
     try {
-      setLoading(true);
-
       const [jobsData, alumniData, experiencesData, statsData] =
         await Promise.all([
           api.getJobs(),
@@ -71,7 +68,7 @@ export default function App() {
     }
   };
 
-  // Load applications for the signed-in user.
+  // Load application data for the authenticated user.
   const loadUserData = async (user: User) => {
     try {
       if (user.role === 'admin') {
@@ -86,8 +83,59 @@ export default function App() {
     }
   };
 
+  // Verify any previously stored login with the backend.
   useEffect(() => {
+    let cancelled = false;
+
+    const initializeApp = async () => {
+      try {
+        const token = getAuthToken();
+        const storedUser = getStoredUser();
+
+        if (!token || !storedUser) {
+          clearAuthSession();
+          return;
+        }
+
+        const response = await api.getProfile();
+
+        if (cancelled) return;
+
+        if (!response?.user) {
+          clearAuthSession();
+          return;
+        }
+
+        setCurrentUser(response.user);
+
+        if (response.user.role === 'admin') {
+          setActiveTab('admin');
+        } else if (response.user.role === 'alumni') {
+          setActiveTab('alumni');
+        } else {
+          setActiveTab('drives');
+        }
+
+        await loadUserData(response.user);
+      } catch (error) {
+        if (!cancelled) {
+          console.warn('Saved session could not be verified:', error);
+          clearAuthSession();
+          setCurrentUser(null);
+        }
+      } finally {
+        if (!cancelled) {
+          setAuthChecking(false);
+        }
+      }
+    };
+
+    void initializeApp();
     void loadAllData();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Handle successful login or registration.
@@ -107,8 +155,7 @@ export default function App() {
 
   // Logout and clear the local session.
   const handleLogout = () => {
-    removeAuthToken();
-    removeStoredUser();
+    clearAuthSession();
 
     setCurrentUser(null);
     setMyApplications([]);
@@ -117,10 +164,11 @@ export default function App() {
     setActiveTab('drives');
   };
 
-  // Job application.
+  // Apply for a placement job.
   const handleApplyJob = async (jobId: string) => {
     try {
       const result = await api.applyJob(jobId);
+
       setMyApplications((previous) => [
         result.application,
         ...previous,
@@ -138,6 +186,7 @@ export default function App() {
   const handleCreateJob = async (jobData: Partial<Job>) => {
     try {
       const created = await api.createJob(jobData);
+
       setJobs((previous) => [created, ...previous]);
       setIsNewJobModalOpen(false);
       setActiveTab('drives');
@@ -150,7 +199,7 @@ export default function App() {
     }
   };
 
-  // Update application status.
+  // Update an application status.
   const handleUpdateAppStatus = async (
     applicationId: string,
     newStatus: string
@@ -189,12 +238,13 @@ export default function App() {
     return api.requestMentorship(data);
   };
 
-  // Post interview experience.
+  // Post an interview experience.
   const handlePostExperience = async (
     data: Partial<InterviewExperience>
   ) => {
     try {
       const created = await api.createExperience(data);
+
       setExperiences((previous) => [created, ...previous]);
     } catch (error) {
       alert(
@@ -205,7 +255,7 @@ export default function App() {
     }
   };
 
-  // Like interview experience.
+  // Like an interview experience.
   const handleLikeExperience = async (id: string) => {
     try {
       const result = await api.likeExperience(id);
@@ -222,7 +272,28 @@ export default function App() {
     }
   };
 
-  // Show login and registration to visitors.
+  // Show a loading screen while verifying an existing session.
+  if (authChecking) {
+    return (
+      <div
+        style={{
+          minHeight: '100vh',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: 'column',
+          gap: '12px',
+          color: '#475569',
+          background: '#f8fafc',
+        }}
+      >
+        <GraduationCapFallback />
+        <p>Checking your PlaceHub session...</p>
+      </div>
+    );
+  }
+
+  // Visitors without a valid session see the login page.
   if (!currentUser) {
     return (
       <>
@@ -254,9 +325,7 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         currentUser={currentUser}
-        onSelectDemoUser={() => {
-          // Demo role switching is disabled for authenticated accounts.
-        }}
+        onSelectDemoUser={() => { }}
         onLogout={handleLogout}
       />
 
@@ -373,7 +442,10 @@ export default function App() {
               }}
             >
               <span>PlaceHub</span>
-              <span className="badge badge-blue" style={{ fontSize: '0.65rem' }}>
+              <span
+                className="badge badge-blue"
+                style={{ fontSize: '0.65rem' }}
+              >
                 MERN Stack
               </span>
             </div>
@@ -401,6 +473,28 @@ export default function App() {
           </div>
         </div>
       </footer>
+    </div>
+  );
+}
+
+// Simple loading icon.
+function GraduationCapFallback() {
+  return (
+    <div
+      style={{
+        width: '48px',
+        height: '48px',
+        borderRadius: '14px',
+        background: '#dbeafe',
+        color: '#2563eb',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontSize: '24px',
+        fontWeight: 800,
+      }}
+    >
+      P
     </div>
   );
 }
